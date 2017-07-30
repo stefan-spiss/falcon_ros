@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
 
     FalconRosDriver driver(node, 10.0, "/falcon/position", "/falcon/velocity", "/falcon/buttons", "/falcon/force", true);
 
-    chai3d::cThread* hapticsThread = new chai3d::cThread();
+/*    chai3d::cThread* hapticsThread = new chai3d::cThread();
     hapticsThread->start(falconCallback, chai3d::CTHREAD_PRIORITY_HAPTICS, &driver);
 
     boost::thread publisherThread(&FalconRosDriver::publishFalconData, &driver);
@@ -23,6 +23,9 @@ int main(int argc, char** argv) {
     publisherThread.join();
 
     delete(hapticsThread);
+*/
+
+    driver.startFalconRosNode();
 
     ros::shutdown();
 }

@@ -42,6 +42,9 @@ public:
     bool getHapticLoop();
     void stopHapticLoop();
 
+    bool getHapticLoopFinished();
+    void setHapticLoopFinished(bool state);
+
     void setForceConsumed(bool forceConsumed);
 
     const chai3d::cGenericHapticDevicePtr &getHapticDevice() const;
@@ -54,6 +57,8 @@ public:
     void saturatAndSetForces(double x, double y, double z);
 
     void publishFalconData();
+
+    void startFalconRosNode();
 
     void cleanUpFalcon();
 
@@ -69,6 +74,9 @@ private:
     std::string velocityTopic;
     std::string buttonsTopic;
     std::string forceSubTopic;
+
+    // haptic thread
+    chai3d::cThread* hapticsThread;
 
     // a haptic device handler
 	chai3d::cHapticDeviceHandler* handler;
@@ -90,6 +98,7 @@ private:
     bool forceOutput;
 
     bool hapticLoop;
+    bool hapticLoopFinished;
 
     bool forceConsumed;
 
