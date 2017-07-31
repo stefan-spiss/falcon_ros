@@ -11,7 +11,7 @@ FalconRosDriver::FalconRosDriver(ros::NodeHandle node, float loopRate, std::stri
         node(node), loopRate(loopRate), positionTopic(positionTopic), velocityTopic(velocityTopic),
         buttonsTopic(buttonsTopic), forceSubTopic(forceSubTopic), forceOutput(forceOutput),
         position(0.0f, 0.0f, 0.0f), velocity(0.0f, 0.0f, 0.0f), force(0.0f, 0.0f, 0.0f), buttons(4, 0),
-        hapticLoop(true) {
+        hapticLoop(true), forceConsumed(true) {
     int initState = this->initFalcon();
     if(initState == 0) {
         std::cout << "Error, no device found!" << std::endl;
