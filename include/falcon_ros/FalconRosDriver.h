@@ -14,6 +14,7 @@
 
 #include <string>
 #include <memory>
+#include <boost/thread/thread.hpp>
 
 /* Maximum rendering force*/
 #define MAX_FORCE 10.0f
@@ -22,32 +23,6 @@ class FalconRosDriver {
 public:
     FalconRosDriver(ros::NodeHandle node, float loopRate, std::string positionTopic, std::string velocityTopic, std::string buttonsTopic, std::string forceSubTopic, bool forceOutput = false);
     ~FalconRosDriver();
-
-    chai3d::cVector3d getPosition();
-    void setPosition(chai3d::cVector3d position);
-
-    chai3d::cVector3d getVelocity();
-    void setVelocity(chai3d::cVector3d velocity);
-
-    std::vector<int>& getButtons();
-    void setButtons(int button1, int button2, int button3, int button4);
-
-    void setForceRendering(bool on);
-
-    bool isForceOutput() const;
-
-    void setForce(double x, double y, double z);
-    chai3d::cVector3d getForce();
-
-    bool getHapticLoop();
-    void stopHapticLoop();
-
-    bool getHapticLoopFinished();
-    void setHapticLoopFinished(bool state);
-
-    void setForceConsumed(bool forceConsumed);
-
-    const chai3d::cGenericHapticDevicePtr &getHapticDevice() const;
 
     /**
      * Saturation
@@ -75,9 +50,6 @@ private:
     std::string buttonsTopic;
     std::string forceSubTopic;
 
-    // haptic thread
-    chai3d::cThread* hapticsThread;
-
     // a haptic device handler
 	chai3d::cHapticDeviceHandler* handler;
 
@@ -98,14 +70,13 @@ private:
     bool forceOutput;
 
     bool hapticLoop;
-    bool hapticLoopFinished;
 
     bool forceConsumed;
 
     int initFalcon();
 
     void forceCallback(const geometry_msgs::Vector3::ConstPtr& data);
-};
 
-/* Callback for haptics loop */
-void falconCallback(void *falconDriver);
+    /* Callback for haptics loop */
+    void falconCallback();
+};

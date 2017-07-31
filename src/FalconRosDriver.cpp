@@ -11,7 +11,7 @@ FalconRosDriver::FalconRosDriver(ros::NodeHandle node, float loopRate, std::stri
         node(node), loopRate(loopRate), positionTopic(positionTopic), velocityTopic(velocityTopic),
         buttonsTopic(buttonsTopic), forceSubTopic(forceSubTopic), forceOutput(forceOutput),
         position(0.0f, 0.0f, 0.0f), velocity(0.0f, 0.0f, 0.0f), force(0.0f, 0.0f, 0.0f), buttons(4, 0),
-        hapticLoop(true), hapticLoopFinished(false) {
+        hapticLoop(true), forceConsumed(true) {
     int initState = this->initFalcon();
     if(initState == 0) {
         std::cout << "Error, no device found!" << std::endl;
@@ -55,61 +55,6 @@ int FalconRosDriver::initFalcon() {
     std::cout << "Connected to: " << info.m_manufacturerName << " " << info.m_modelName << std::endl;
 }
 
-void FalconRosDriver::setPosition(chai3d::cVector3d position) {
-    this->position = position;
-}
-
-chai3d::cVector3d FalconRosDriver::getPosition() {
-    return this->position;
-}
-
-void FalconRosDriver::setVelocity(chai3d::cVector3d velocity) {
-    this->velocity = velocity;
-}
-
-chai3d::cVector3d FalconRosDriver::getVelocity() {
-    return this->velocity;
-}
-
-void FalconRosDriver::setForceRendering(bool on) {
-    forceOutput = on;
-}
-
-void FalconRosDriver::setButtons(int button1, int button2, int button3, int button4) {
-    this->buttons[0] = button1;
-    this->buttons[1] = button2;
-    this->buttons[2] = button3;
-    this->buttons[3] = button4;
-}
-
-std::vector<int> &FalconRosDriver::getButtons() {
-    return this->buttons;
-}
-
-void FalconRosDriver::setForce(double x, double y, double z) {
-    this->force.set(x, y, z);
-}
-
-chai3d::cVector3d FalconRosDriver::getForce() {
-    return this->force;
-}
-
-void FalconRosDriver::stopHapticLoop() {
-    hapticLoop = false;
-}
-
-bool FalconRosDriver::getHapticLoop() {
-    return hapticLoop;
-}
-
-void FalconRosDriver::setHapticLoopFinished(bool state) {
-    hapticLoopFinished = state;
-}
-
-bool FalconRosDriver::getHapticLoopFinished() {
-    return hapticLoopFinished;
-}
-
 void FalconRosDriver::saturatAndSetForces(double x, double y, double z) {
     if (x < -MAX_FORCE) x = -MAX_FORCE;
     if (y < -MAX_FORCE) y = -MAX_FORCE;
@@ -123,18 +68,6 @@ void FalconRosDriver::saturatAndSetForces(double x, double y, double z) {
 void FalconRosDriver::forceCallback(const geometry_msgs::Vector3::ConstPtr &data) {
     this->saturatAndSetForces(data->x, data->y, data->z);
     forceConsumed = false;
-}
-
-const chai3d::cGenericHapticDevicePtr &FalconRosDriver::getHapticDevice() const {
-    return hapticDevice;
-}
-
-bool FalconRosDriver::isForceOutput() const {
-    return forceOutput;
-}
-
-void FalconRosDriver::setForceConsumed(bool forceConsumed) {
-    FalconRosDriver::forceConsumed = forceConsumed;
 }
 
 void FalconRosDriver::publishFalconData() {
@@ -177,39 +110,33 @@ void FalconRosDriver::publishFalconData() {
 }
 
 void FalconRosDriver::startFalconRosNode() {
-    hapticsThread = new chai3d::cThread();
-    hapticsThread->start(falconCallback, chai3d::CTHREAD_PRIORITY_HAPTICS, &this);
-
-    //atexit(cleanUpFalcon, &this);
+    boost::thread hapticsThread(boost::bind(&FalconRosDriver::falconCallback, this));
 
     publishFalconData();
+
+    hapticsThread.join();
 
     cleanUpFalcon();
 }
 
 void FalconRosDriver::cleanUpFalcon() {
-    while(!hapticLoopFinished) {
-        chai3d::cSleepMs(100);
-    }
     hapticDevice->close();
-    delete(hapticThread);
     delete(handler);
 }
 
-void falconCallback(void *falconDriver) {
-    FalconRosDriver *rosDriver = static_cast<FalconRosDriver *>(falconDriver);
+void FalconRosDriver::falconCallback() {
 
     // main haptic simulation loop
-    while (rosDriver->getHapticLoop()) {
+    while (hapticLoop) {
 
         chai3d::cVector3d currentPos;
         chai3d::cVector3d currentVel;
         
         // read position
-        rosDriver->getHapticDevice()->getPosition(currentPos);
+        hapticDevice->getPosition(currentPos);
 
         // read linear velocity
-        rosDriver->getHapticDevice()->getLinearVelocity(currentVel);
+        hapticDevice->getLinearVelocity(currentVel);
 
         // read user-switch status (button 0)
         bool button0, button1, button2, button3;
@@ -218,25 +145,28 @@ void falconCallback(void *falconDriver) {
         button2 = false;
         button3 = false;
 
-        rosDriver->getHapticDevice()->getUserSwitch(0, button0);
-        rosDriver->getHapticDevice()->getUserSwitch(1, button1);
-        rosDriver->getHapticDevice()->getUserSwitch(2, button2);
-        rosDriver->getHapticDevice()->getUserSwitch(3, button3);
+        hapticDevice->getUserSwitch(0, button0);
+        hapticDevice->getUserSwitch(1, button1);
+        hapticDevice->getUserSwitch(2, button2);
+        hapticDevice->getUserSwitch(3, button3);
 
-        rosDriver->setPosition(currentPos);
-        rosDriver->setVelocity(currentVel);
-        rosDriver->setButtons(button0, button1, button2, button3);
+        position = currentPos;
+        velocity = currentVel;
+
+        this->buttons[0] = button0;
+        this->buttons[1] = button1;
+        this->buttons[2] = button2;
+        this->buttons[3] = button3;
 
         /**
          * Apply forces
          */
-        if (rosDriver->isForceOutput()) {
+        if (forceOutput) {
             //std::cout << "Force: " << rosDriver->getForce() << std::endl;
-            rosDriver->getHapticDevice()->setForce(rosDriver->getForce());
-            rosDriver->setForceConsumed(true);
+            hapticDevice->setForce(force);
+            forceConsumed = true;
         } else {
-            rosDriver->getHapticDevice()->setForce(chai3d::cVector3d(0.0f, 0.0f, 0.0f));
+            hapticDevice->setForce(chai3d::cVector3d(0.0f, 0.0f, 0.0f));
         }
     }
-    rosDriver->setHapticLoopFinished(true);
 }

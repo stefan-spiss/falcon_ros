@@ -6,3 +6,6 @@ The package was tested with chai3d-3.2.0. To use the package, download the CMAKE
 Additionally, follow the chai3d documentation to find out which packages need to be installed to build the SDK and how to set the user privileges to run chai3d for the Falcon device without root priveleges.
 
 After this steps, the ROS node should compile using catkin\_make.
+
+### Important
+Node is not using the haptic thread from chai3d, because it caused segmentation faults. Instead a boost thread is used.
